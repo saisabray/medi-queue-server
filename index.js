@@ -18,8 +18,13 @@ const client = new MongoClient(uri, {
 });
 async function run() {
   try {
-      await client.connect();
-      console.log("Successfully connected to MongoDB");
+    await client.connect();
+    const database = client.db("medi-queue");
+    app.get('/tutors', async (req, res) => {
+      const tutorsCollection = database.collection("tutors");
+      const tutors = await tutorsCollection.find({}).limit(6).toArray();
+      res.json(tutors);
+    });
   } catch (error) {
       console.error("Error connecting to MongoDB:", error);
   }
