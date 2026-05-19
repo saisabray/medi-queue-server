@@ -1,7 +1,7 @@
-const express = require('express');
-const dotenv = require('dotenv');
+const express = require("express");
+const dotenv = require("dotenv");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const cors = require('cors');
+const cors = require("cors");
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,19 +21,19 @@ async function run() {
     await client.connect();
     const database = client.db("medi-queue");
     //Freture Api
-    app.get('/tutors', async (req, res) => {
+    app.get("/tutors", async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const tutors = await tutorsCollection.find({}).limit(6).toArray();
       res.json(tutors);
     });
     //All tutors api
-    app.get('/tutors/all', async (req, res) => {
+    app.get("/tutors/all", async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const tutors = await tutorsCollection.find({}).toArray();
       res.json(tutors);
     });
     //Add tutor api
-    app.post('/tutors/all', async (req, res) => {
+    app.post("/tutors/all", async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const tutor = req.body;
       const result = await tutorsCollection.insertOne(tutor);
@@ -42,14 +42,29 @@ async function run() {
     });
 
     //Tutor details api
-    app.get('/tutors/all/:id', async (req, res) => {
+    app.get("/tutors/all/:id", async (req, res) => {
       const tutorsCollection = database.collection("tutors");
-      const id = req.params.id;
+      const { id } = req.params;
       const tutor = await tutorsCollection.findOne({ _id: new ObjectId(id) });
       res.json(tutor);
     });
+    //Patch tutor api
+    app.patch("/tutors/all/:id", async (req, res) => {
+      const tutorsCollection = database.collection("tutors");
+      const { id } = req.params;
+      const updatedData = req.body;
+
+      console.log("PATCH BODY:", updatedData);
+
+      const result = await tutorsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedData },
+      );
+
+      res.json(result);
+    });
   } catch (error) {
-      console.error("Error connecting to MongoDB:", error);
+    console.error("Error connecting to MongoDB:", error);
   }
 }
 run().catch(console.dir);
