@@ -1,6 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require('cors');
 dotenv.config();
 const app = express();
@@ -39,8 +39,14 @@ async function run() {
       const result = await tutorsCollection.insertOne(tutor);
       console.log(result);
       res.json(result);
-      
+    });
 
+    //Tutor details api
+    app.get('/tutors/all/:id', async (req, res) => {
+      const tutorsCollection = database.collection("tutors");
+      const id = req.params.id;
+      const tutor = await tutorsCollection.findOne({ _id: new ObjectId(id) });
+      res.json(tutor);
     });
   } catch (error) {
       console.error("Error connecting to MongoDB:", error);
