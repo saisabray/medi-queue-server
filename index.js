@@ -32,6 +32,16 @@ async function run() {
       const tutors = await tutorsCollection.find({}).toArray();
       res.json(tutors);
     });
+    //Add tutor api
+    app.post('/tutors/all', async (req, res) => {
+      const tutorsCollection = database.collection("tutors");
+      const tutor = req.body;
+      const result = await tutorsCollection.insertOne(tutor);
+      console.log(result);
+      res.json(result);
+      
+
+    });
   } catch (error) {
       console.error("Error connecting to MongoDB:", error);
   }
