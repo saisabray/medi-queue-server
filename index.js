@@ -85,8 +85,57 @@ async function run() {
       });
       res.json(result);
     });
+    
+    //Booking api
+    app.post("/bookings", async (req, res) => {
+      try {
+        const bookingsCollection = database.collection("bookings");
+        const tutorsCollection = database.collection("tutors");
 
-   
+        const booking = req.body;
+
+        if (!booking.tutorId) {
+          return res.status(400).json({ error: "Tutor ID is required" });
+        }
+        const tutor = await tutorsCollection.findOne({
+          _id: new ObjectId(booking.tutorId),
+        });
+
+        if (!tutor) {
+          return res.status(404).json({ error: "Tutor not found" });
+        }
+        const totalSlot = Number(tutor.totalSlot);
+
+        if (totalSlot <= 0) {
+          return res.status(400).json({
+            message:
+              "This session is fully booked. You can’t join at the moment.",
+          });
+        }
+        const currentDate = new Date();
+        const sessionDate = new Date(tutor.sessionDate);
+        if (currentDate < sessionDate) {
+          return res.status(400).json({
+            message: "Booking is not available yet for this tutor",
+          });
+        }
+        const result = await bookingsCollection.insertOne(booking);
+        await tutorsCollection.updateOne(
+          { _id: new ObjectId(booking.tutorId) },
+          { $inc: { totalSlot: -1 } },
+        );
+        return res.status(200).json({
+          success: true,
+          message: "Booking successful",
+          data: result,
+        });
+      } catch (error) {
+        console.error("Booking error:", error);
+        return res.status(500).json({
+          error: "Internal server error",
+        });
+      }
+    });
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
   }
