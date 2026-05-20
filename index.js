@@ -63,6 +63,19 @@ async function run() {
 
       res.json(result);
     });
+    //UserId api
+    app.get("/tutors/:userId", async (req, res) => {
+      try {
+        const tutorsCollection = database.collection("tutors");
+        const userId = req.params.userId;
+
+        const tutors = await tutorsCollection.find({ userId }).toArray();
+
+        res.json(tutors);
+      } catch (error) {
+        res.status(500).json({ message: "Server error", error });
+      }
+    });
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
   }
