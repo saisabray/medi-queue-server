@@ -1,5 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 dotenv.config();
@@ -16,24 +17,47 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+const JWKS = createRemoteJWKSet(new URL("http://localhost:3000/api/auth/jwks"));
+
+const verifyToken = async (req, res, next) => {
+  const authHeader = req?.headers.authorization;
+  console.log("Authorization Header:", authHeader);
+  if (!authHeader) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    console.log("JWT Payload:", payload);
+    next();
+  } catch (error) {
+    console.error("JWT Verification Error:", error);
+    return res.status(403).json({ message: "Forbidden" });
+  }
+};
+  
 async function run() {
   try {
     await client.connect();
     const database = client.db("medi-queue");
-    //Freture Api
+    //Freature Api
     app.get("/tutors", async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const tutors = await tutorsCollection.find({}).limit(6).toArray();
       res.json(tutors);
     });
     //All tutors api
-    app.get("/tutors/all", async (req, res) => {
+    app.get("/tutors/all", verifyToken, async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const tutors = await tutorsCollection.find({}).toArray();
       res.json(tutors);
     });
     //Add tutor api
-    app.post("/tutors/all", async (req, res) => {
+    app.post("/tutors/all", verifyToken, async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const tutor = req.body;
       const result = await tutorsCollection.insertOne(tutor);
@@ -42,14 +66,14 @@ async function run() {
     });
 
     //Tutor details api
-    app.get("/tutors/all/:id", async (req, res) => {
+    app.get("/tutors/all/:id", verifyToken, async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const { id } = req.params;
       const tutor = await tutorsCollection.findOne({ _id: new ObjectId(id) });
       res.json(tutor);
     });
     //Patch tutor api
-    app.patch("/tutors/all/:id", async (req, res) => {
+    app.patch("/tutors/all/:id", verifyToken, async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const { id } = req.params;
       const updatedData = req.body;
@@ -64,7 +88,7 @@ async function run() {
       res.json(result);
     });
     //UserId api
-    app.get("/tutors/:userId", async (req, res) => {
+    app.get("/tutors/:userId", verifyToken, async (req, res) => {
       try {
         const tutorsCollection = database.collection("tutors");
         const userId = req.params.userId;
@@ -77,7 +101,7 @@ async function run() {
       }
     });
     //Delete tutor api
-    app.delete("/tutors/all/:id", async (req, res) => {
+    app.delete("/tutors/all/:id", verifyToken, async (req, res) => {
       const tutorsCollection = database.collection("tutors");
       const { id } = req.params;
       const result = await tutorsCollection.deleteOne({
@@ -87,7 +111,7 @@ async function run() {
     });
     
     //Booking api
-    app.post("/bookings", async (req, res) => {
+    app.post("/bookings", verifyToken, async (req, res) => {
       try {
         const bookingsCollection = database.collection("bookings");
         const tutorsCollection = database.collection("tutors");
@@ -136,6 +160,9 @@ async function run() {
         });
       }
     });
+
+  //Get bookings api by email
+  
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
   }
