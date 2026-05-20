@@ -76,6 +76,17 @@ async function run() {
         res.status(500).json({ message: "Server error", error });
       }
     });
+    //Delete tutor api
+    app.delete("/tutors/all/:id", async (req, res) => {
+      const tutorsCollection = database.collection("tutors");
+      const { id } = req.params;
+      const result = await tutorsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.json(result);
+    });
+
+   
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
   }
