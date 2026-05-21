@@ -18,7 +18,6 @@ const client = new MongoClient(uri, {
   },
 });
 const JWKS = createRemoteJWKSet(new URL("http://localhost:3000/api/auth/jwks"));
-
 const verifyToken = async (req, res, next) => {
   const authHeader = req?.headers.authorization;
   console.log("Authorization Header:", authHeader);
@@ -29,17 +28,22 @@ const verifyToken = async (req, res, next) => {
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-
   try {
     const { payload } = await jwtVerify(token, JWKS);
+
     console.log("JWT Payload:", payload);
+    req.user = {
+      email: payload.email,
+      id: payload.sub || payload.id,
+      name: payload.name,
+    };
     next();
   } catch (error) {
     console.error("JWT Verification Error:", error);
     return res.status(403).json({ message: "Forbidden" });
   }
 };
-  
+
 async function run() {
   try {
     await client.connect();
@@ -109,7 +113,7 @@ async function run() {
       });
       res.json(result);
     });
-    
+
     //Booking api
     app.post("/bookings", verifyToken, async (req, res) => {
       try {
@@ -161,8 +165,80 @@ async function run() {
       }
     });
 
-  //Get bookings api by email
-  
+    //get booking api
+    app.get("/bookings", verifyToken, async (req, res) => {
+      try {
+        const bookingsCollection = database.collection("bookings");
+
+        const email = req.user.email;
+
+        const bookings = await bookingsCollection
+          .find({
+            $or: [
+              { studentEmail: email },
+              { tutorEmail: email }
+            ]
+          })
+          .sort({ bookingDate: -1 })
+          .toArray();
+
+        return res.status(200).json({
+          success: true,
+          data: bookings,
+        });
+      } catch (error) {
+        console.error("Get bookings error:", error);
+        return res.status(500).json({
+          error: "Internal server error",
+        });
+      }
+    });
+
+    //Cancel booking api
+    app.patch("/bookings/cancel/:id", verifyToken, async (req, res) => {
+      try {
+        const bookingsCollection = database.collection("bookings");
+        const tutorsCollection = database.collection("tutors");
+        const { id } = req.params;
+
+        const booking = await bookingsCollection.findOne({ _id: new ObjectId(id) });
+        if (!booking) {
+          return res.status(404).json({ error: "Booking not found" });
+        }
+
+        if (booking.status === "cancel") {
+          return res.status(400).json({ message: "Booking is already canceled" });
+        }
+
+        if (booking.studentEmail !== req.user.email) {
+          return res.status(403).json({ message: "Forbidden: You cannot cancel this booking" });
+        }
+
+        const result = await bookingsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: "cancel" } }
+        );
+
+        if (booking.tutorId) {
+          await tutorsCollection.updateOne(
+            { _id: new ObjectId(booking.tutorId) },
+            { $inc: { totalSlot: 1 } }
+          );
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: "Booking canceled successfully",
+          data: result,
+        });
+      } catch (error) {
+        console.error("Cancel booking error:", error);
+        return res.status(500).json({
+          error: "Internal server error",
+        });
+      }
+    });
+
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
   }
