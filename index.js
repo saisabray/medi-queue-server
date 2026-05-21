@@ -56,9 +56,41 @@ async function run() {
     });
     //All tutors api
     app.get("/tutors/all", verifyToken, async (req, res) => {
-      const tutorsCollection = database.collection("tutors");
-      const tutors = await tutorsCollection.find({}).toArray();
-      res.json(tutors);
+      try {
+        const tutorsCollection = database.collection("tutors");
+        const { search, startDate, endDate } = req.query;
+
+        let query = {};
+
+        if (search) {
+          query.tutorName = { $regex: search, $options: "i" };
+        }
+
+        if (startDate || endDate) {
+          const dateQuery = {};
+          const strQuery = {};
+
+          if (startDate) {
+            dateQuery.$gte = new Date(startDate);
+            strQuery.$gte = startDate;
+          }
+          if (endDate) {
+            dateQuery.$lte = new Date(endDate);
+            strQuery.$lte = endDate;
+          }
+
+          query.$or = [
+            { sessionDate: dateQuery },
+            { sessionDate: strQuery }
+          ];
+        }
+
+        const tutors = await tutorsCollection.find(query).toArray();
+        res.json(tutors);
+      } catch (error) {
+        console.error("Error fetching tutors:", error);
+        res.status(500).json({ message: "Server error", error });
+      }
     });
     //Add tutor api
     app.post("/tutors/all", verifyToken, async (req, res) => {
